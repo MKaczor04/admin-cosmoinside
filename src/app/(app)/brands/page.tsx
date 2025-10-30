@@ -68,9 +68,31 @@ export default function BrandsPage() {
           {brands.map((b) => (
             <li key={b.id} className="py-2 flex items-center justify-between">
               <span>{b.name}</span>
-              {/* na później: edycja/usuń */}
-            </li>
-          ))}
+              <li key={b.id} className="py-2 flex items-center gap-2">
+  <input
+    className="flex-1 rounded border p-2"
+    defaultValue={b.name}
+    onBlur={async (e) => {
+      const v = e.currentTarget.value.trim();
+      if (!v || v === b.name) return;
+      const { error } = await supabase.from('brands').update({ name: v }).eq('id', b.id);
+      if (error) alert('Błąd edycji: ' + error.message);
+      else await load();
+    }}
+  />
+  <button
+    className="rounded bg-red-600 px-3 py-1 text-white"
+    onClick={async () => {
+      if (!confirm(`Usunąć markę "${b.name}"?`)) return;
+      const { error } = await supabase.from('brands').delete().eq('id', b.id);
+      if (error) alert('Błąd usuwania: ' + error.message);
+      else await load();
+    }}
+  >
+    Usuń
+  </button>
+</li>
+            </li>))}
         </ul>
       )}
     </div>
