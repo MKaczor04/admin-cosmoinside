@@ -10,8 +10,12 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
   const [ok, setOk] = useState<null | boolean>(null);
 
   useEffect(() => {
+    let unsub: { unsubscribe: () => void } | null = null;
+
     async function check(session: Session | null) {
       const uid = session?.user?.id;
+      console.log('[Guard] session uid =', uid);
+
       if (!uid) {
         setOk(false);
         router.replace('/login');
@@ -20,11 +24,11 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
 
       const { data, error } = await supabase
         .from('profiles')
-        .select('role')
+        .select('id, role')
         .eq('id', uid)
         .maybeSingle();
 
-      console.log('profile:', { data, error });
+      console.log('[Guard] profile =', data, 'error =', error);
 
       if (error || !data || data.role !== 'admin') {
         setOk(false);
@@ -39,16 +43,16 @@ export default function AdminGuard({ children }: { children: React.ReactNode }) 
       const { data } = await supabase.auth.getSession();
       await check(data.session);
 
-      // 2) nasłuch zmian sesji (ZWRACA data.subscription)
-      const { data: authListener } = supabase.auth.onAuthStateChange((_evt, session) => {
+      // 2) nasłuch zmian sesji
+      const { data: listener } = supabase.auth.onAuthStateChange((_evt, session) => {
         check(session);
       });
-
-      // cleanup
-      return () => {
-        authListener?.subscription?.unsubscribe();
-      };
+      unsub = listener.subscription;
     })();
+
+    return () => {
+      unsub?.unsubscribe?.();
+    };
   }, [router]);
 
   if (ok === null) return <div className="p-6">Sprawdzam uprawnienia…</div>;
