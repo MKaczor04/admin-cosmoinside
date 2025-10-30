@@ -1,4 +1,5 @@
 'use client';
+
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
@@ -8,6 +9,7 @@ export default function LoginForm({ err }: { err: string | null }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+
   const canSubmit = email.trim().length > 3 && password.length > 0;
 
   const onSubmit = async (e: FormEvent) => {
@@ -17,9 +19,10 @@ export default function LoginForm({ err }: { err: string | null }) {
     setLoading(true);
     try {
       // 1) Logowanie
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-
-      // pomocniczo sprawdźmy co wraca
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
       console.log('Zalogowano:', data, 'error:', error);
 
       if (error) {
@@ -27,18 +30,25 @@ export default function LoginForm({ err }: { err: string | null }) {
         return;
       }
 
-      // 2) Upewnij się, że sesja jest zapisana po stronie klienta
+      // 2) Upewnij się, że sesja jest aktywna po stronie klienta
       const { data: sess } = await supabase.auth.getSession();
       console.log('getSession() po logowaniu:', sess);
 
       if (!sess.session) {
-        alert('Brak aktywnej sesji po logowaniu (sprawdź konfigurację supabaseClient).');
+        alert('Brak aktywnej sesji po logowaniu. Sprawdź konfigurację supabaseClient.');
         return;
       }
 
-      // 3) Odśwież stan aplikacji i przejdź dalej
+      // 3) Miękkie przejście + odświeżenie
       router.replace('/');
       router.refresh();
+
+      // 4) Twardy fallback (czasem Next zostaje na /login)
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+          window.location.assign('/');
+        }
+      }, 50);
     } finally {
       setLoading(false);
     }
@@ -48,7 +58,12 @@ export default function LoginForm({ err }: { err: string | null }) {
     <div className="flex min-h-screen items-center justify-center">
       <form onSubmit={onSubmit} className="w-full max-w-sm rounded-xl bg-white p-6 shadow">
         <h1 className="mb-4 text-xl font-bold">Logowanie</h1>
-        {err === 'forbidden' && <p className="mb-2 text-sm text-red-600">Brak uprawnień.</p>}
+
+        {err === 'forbidden' && (
+          <p className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">
+            Brak uprawnień do panelu.
+          </p>
+        )}
 
         <input
           className="mb-3 w-full rounded border p-2"
