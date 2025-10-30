@@ -8,14 +8,40 @@ export default function LoginForm({ err }: { err: string | null }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const canSubmit = email.trim().length > 3 && password.length > 0;
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!canSubmit || loading) return;
+
     setLoading(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setLoading(false);
-    if (error) alert(error.message);
-    else router.replace('/');
+    try {
+      // 1) Logowanie
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+
+      // pomocniczo sprawdźmy co wraca
+      console.log('Zalogowano:', data, 'error:', error);
+
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      // 2) Upewnij się, że sesja jest zapisana po stronie klienta
+      const { data: sess } = await supabase.auth.getSession();
+      console.log('getSession() po logowaniu:', sess);
+
+      if (!sess.session) {
+        alert('Brak aktywnej sesji po logowaniu (sprawdź konfigurację supabaseClient).');
+        return;
+      }
+
+      // 3) Odśwież stan aplikacji i przejdź dalej
+      router.replace('/');
+      router.refresh();
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,11 +49,29 @@ export default function LoginForm({ err }: { err: string | null }) {
       <form onSubmit={onSubmit} className="w-full max-w-sm rounded-xl bg-white p-6 shadow">
         <h1 className="mb-4 text-xl font-bold">Logowanie</h1>
         {err === 'forbidden' && <p className="mb-2 text-sm text-red-600">Brak uprawnień.</p>}
-        <input className="mb-3 w-full rounded border p-2" placeholder="Email"
-               value={email} onChange={(e)=>setEmail(e.target.value)} />
-        <input className="mb-4 w-full rounded border p-2" placeholder="Hasło" type="password"
-               value={password} onChange={(e)=>setPassword(e.target.value)} />
-        <button disabled={loading} className="w-full rounded bg-slate-900 p-2 font-semibold text-white">
+
+        <input
+          className="mb-3 w-full rounded border p-2"
+          placeholder="Email"
+          type="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+
+        <input
+          className="mb-4 w-full rounded border p-2"
+          placeholder="Hasło"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+
+        <button
+          disabled={loading || !canSubmit}
+          className="w-full rounded bg-slate-900 p-2 font-semibold text-white disabled:opacity-50"
+        >
           {loading ? 'Loguję…' : 'Zaloguj'}
         </button>
       </form>

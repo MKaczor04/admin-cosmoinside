@@ -1,13 +1,14 @@
-import LoginForm from '@/components/LoginForm';
+'use client';
 
-export const dynamic = 'force-dynamic'; // wyłącz SSG dla login
+import AdminGuard from '@/components/AdminGuard';
 
-export default async function LoginPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ e?: string }>;
-}) {
-  const sp = await searchParams;
-  const err = typeof sp.e === 'string' ? sp.e : null;
-  return <LoginForm err={err} />;
+export default function HomePage() {
+  return (
+    <AdminGuard>
+      <div style={{ padding: 24 }}>
+        <h1>Panel administracyjny</h1>
+        <p>Jesteś zalogowany jako admin ✅</p>
+      </div>
+    </AdminGuard>
+  );
 }

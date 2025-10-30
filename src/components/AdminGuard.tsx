@@ -1,61 +1,41 @@
 'use client';
-
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabaseClient';
-import type { Session } from '@supabase/supabase-js';
 
 export default function AdminGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [ok, setOk] = useState<null | boolean>(null);
+  const [checking, setChecking] = useState(true);
+  const [allowed, setAllowed] = useState(false);
 
   useEffect(() => {
-    let unsub: { unsubscribe: () => void } | null = null;
-
-    async function check(session: Session | null) {
-      const uid = session?.user?.id;
-      console.log('[Guard] session uid =', uid);
-
-      if (!uid) {
-        setOk(false);
-        router.replace('/login');
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, role')
-        .eq('id', uid)
-        .maybeSingle();
-
-      console.log('[Guard] profile =', data, 'error =', error);
-
-      if (error || !data || data.role !== 'admin') {
-        setOk(false);
-        router.replace('/login');
-        return;
-      }
-      setOk(true);
-    }
-
-    (async () => {
-      // 1) natychmiastowa próba
+    const check = async () => {
       const { data } = await supabase.auth.getSession();
-      await check(data.session);
+      const session = data?.session;
+      console.log('[Guard] Session =', session);
 
-      // 2) nasłuch zmian sesji
-      const { data: listener } = supabase.auth.onAuthStateChange((_evt, session) => {
-        check(session);
-      });
-      unsub = listener.subscription;
-    })();
+      if (!session) { router.replace('/login'); return; }
 
-    return () => {
-      unsub?.unsubscribe?.();
+      const { data: profile, error } = await supabase
+        .from('profiles').select('role').eq('id', session.user.id).maybeSingle();
+
+      console.log('[Guard] Profil =', profile, 'error =', error);
+
+      if (error || profile?.role !== 'admin') { router.replace('/login?e=forbidden'); return; }
+
+      setAllowed(true);
+      setChecking(false);
     };
+
+    check();
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, sess) => {
+      if (!sess) router.replace('/login');
+    });
+    return () => sub?.subscription.unsubscribe();
   }, [router]);
 
-  if (ok === null) return <div className="p-6">Sprawdzam uprawnienia…</div>;
-  if (!ok) return null;
+  if (checking) return <div className="p-6">🔐 Sprawdzam uprawnienia…</div>;
+  if (!allowed) return null;
   return <>{children}</>;
 }
