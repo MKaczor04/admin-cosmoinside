@@ -31,7 +31,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen grid grid-rows-[auto_1fr]">
         <header className="flex items-center justify-between gap-4 px-4 py-3 border-b">
           <div className="flex items-center gap-2">
-            <span className="font-bold">CosmoInside • Admin</span>
+            <span className="font-bold">CosmoInside • Panel administratora</span>
             <nav className="ml-4 flex gap-2">
               <NavLink href="/" label="Start" />
               <NavLink href="/brands" label="Marki" />
