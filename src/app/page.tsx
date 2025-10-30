@@ -2,9 +2,12 @@ import LoginForm from '@/components/LoginForm';
 
 export const dynamic = 'force-dynamic'; // wyłącz SSG dla login
 
-export default function LoginPage({
+export default async function LoginPage({
   searchParams,
-}: { searchParams?: { e?: string } }) {
-  const err = typeof searchParams?.e === 'string' ? searchParams!.e : null;
+}: {
+  searchParams: Promise<{ e?: string }>;
+}) {
+  const sp = await searchParams;
+  const err = typeof sp.e === 'string' ? sp.e : null;
   return <LoginForm err={err} />;
 }
