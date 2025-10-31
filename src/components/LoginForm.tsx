@@ -23,73 +23,98 @@ export default function LoginForm({ err }: { err: string | null }) {
         email,
         password,
       });
-      console.log('Zalogowano:', data, 'error:', error);
-
       if (error) {
         alert(error.message);
         return;
       }
 
-      // 2) Upewnij się, że sesja jest aktywna po stronie klienta
+      // 2) Upewnijmy się, że sesja jest aktywna
       const { data: sess } = await supabase.auth.getSession();
-      console.log('getSession() po logowaniu:', sess);
-
       if (!sess.session) {
         alert('Brak aktywnej sesji po logowaniu. Sprawdź konfigurację supabaseClient.');
         return;
       }
 
-      // 3) Miękkie przejście + odświeżenie
+      // 3) Przejście do panelu
       router.replace('/');
       router.refresh();
 
-      // 4) Twardy fallback (czasem Next zostaje na /login)
+      // 4) Twardy fallback, gdyby Next pozostał na /login
       setTimeout(() => {
         if (typeof window !== 'undefined' && window.location.pathname === '/login') {
           window.location.assign('/');
         }
-      }, 50);
+      }, 60);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <form onSubmit={onSubmit} className="w-full max-w-sm rounded-xl bg-white p-6 shadow">
-        <h1 className="mb-4 text-xl font-bold">Logowanie</h1>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-slate-950 px-4 text-white">
+      {/* Logo + tytuł */}
+      <div className="mb-8 text-center">
+        {/* Umieść plik /public/logo-cosmoinside.png */}
+        <img
+          src="/logo-cosmoinside.png"
+          alt="CosmoInside logo"
+          className="mx-auto mb-3 h-80 w-80 object-contain drop-shadow-md"
+        />
+        <h1 className="text-3xl font-semibold tracking-wide text-slate-100">
+          CosmoInside
+        </h1>
+        <p className="mt-1 text-slate-400">Panel administratora</p>
+      </div>
+
+      {/* Karta logowania */}
+      <form
+        onSubmit={onSubmit}
+        className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl backdrop-blur"
+      >
+        <h2 className="mb-5 text-center text-lg font-semibold text-slate-200">
+          Logowanie
+        </h2>
 
         {err === 'forbidden' && (
-          <p className="mb-3 rounded bg-red-50 p-2 text-sm text-red-700">
+          <p className="mb-4 rounded-lg border border-red-900/40 bg-red-900/20 px-3 py-2 text-sm text-red-200">
             Brak uprawnień do panelu.
           </p>
         )}
 
-        <input
-          className="mb-3 w-full rounded border p-2"
-          placeholder="Email"
-          type="email"
-          autoComplete="username"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
+        <div className="mb-3">
+          <input
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-slate-500 focus:outline-none"
+            placeholder="Adres e-mail"
+            type="email"
+            autoComplete="username"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+        </div>
 
-        <input
-          className="mb-4 w-full rounded border p-2"
-          placeholder="Hasło"
-          type="password"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <div className="mb-5">
+          <input
+            className="w-full rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-slate-100 placeholder-slate-500 focus:border-slate-500 focus:outline-none"
+            placeholder="Hasło"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+        </div>
 
         <button
           disabled={loading || !canSubmit}
-          className="w-full rounded bg-slate-900 p-2 font-semibold text-white disabled:opacity-50"
+          className="w-full rounded-lg bg-slate-800 px-4 py-2 font-medium text-white transition hover:bg-slate-700 disabled:opacity-60"
         >
-          {loading ? 'Loguję…' : 'Zaloguj'}
+          {loading ? 'Loguję…' : 'Zaloguj się'}
         </button>
       </form>
+
+      {/* Stopka z wersjami */}
+      <footer className="mt-10 text-xs text-slate-500">
+        Aplikacja CosmoInside: 0.1.0 • Panel administratora: 0.2.0
+      </footer>
     </div>
   );
 }
