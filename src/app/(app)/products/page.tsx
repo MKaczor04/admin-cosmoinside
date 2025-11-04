@@ -116,7 +116,7 @@ export default function ProductsPage() {
 
       {/* Karta z treścią wycentrowaną */}
       <div className="mx-auto w-full max-w-4xl px-4 sm:px-6">
-        <div className="rounded-2xl border bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="rounded-2xl border bg-gray p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           {/* Wyszukiwarka */}
           <div className="mb-4 flex items-center gap-3">
             <input
