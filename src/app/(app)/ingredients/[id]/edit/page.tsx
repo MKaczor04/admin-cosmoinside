@@ -7,8 +7,8 @@ import { supabase } from '@/lib/supabaseClient';
 type Ingredient = {
   id: number;
   inci_name: string;
-  functions: string[] | string | null; // ⬅️ dodany string
-  safety_level: number | null;
+  functions: string[] | string | null;
+  level_of_recommendation: string | null; // ← zmiana nazwy/typu
   is_new: boolean | null;
 };
 
@@ -20,35 +20,32 @@ export default function EditIngredientPage() {
   const [ing, setIng] = useState<Ingredient | null>(null);
   const [inci, setInci] = useState('');
   const [functionsCsv, setFunctionsCsv] = useState('');
-  const [safety, setSafety] = useState<number | ''>('');
+  const [level, setLevel] = useState<string>(''); // ← 1..5 | 'alergen' | 'konserwant' | ''
   const [isNew, setIsNew] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   const normalizeFunctions = (v: string[] | string | null | undefined): string[] => {
-  if (Array.isArray(v)) return v.filter(Boolean);
-  if (typeof v === 'string') {
-    try {
-      // Jeśli to JSON, np. ["humectant","solvent"]
-      const parsed = JSON.parse(v);
-      if (Array.isArray(parsed)) return parsed.map((s) => String(s).trim()).filter(Boolean);
-    } catch {
-      // Jeśli zwykły tekst, np. "emollient, humectant"
-      const t = v.trim();
-      if (!t) return [];
-      return t.split(',').map((s) => s.trim()).filter(Boolean);
+    if (Array.isArray(v)) return v.filter(Boolean);
+    if (typeof v === 'string') {
+      try {
+        const parsed = JSON.parse(v);
+        if (Array.isArray(parsed)) return parsed.map((s) => String(s).trim()).filter(Boolean);
+      } catch {
+        const t = v.trim();
+        if (!t) return [];
+        return t.split(',').map((s) => s.trim()).filter(Boolean);
+      }
     }
-  }
-  return [];
-};
-
+    return [];
+  };
 
   useEffect(() => {
     (async () => {
       try {
         const { data, error } = await supabase
           .from('ingredients')
-          .select('id, inci_name, functions, safety_level, is_new')
+          .select('id, inci_name, functions, level_of_recommendation, is_new') // ← pobieramy level_of_recommendation
           .eq('id', id)
           .maybeSingle();
 
@@ -59,11 +56,12 @@ export default function EditIngredientPage() {
           return;
         }
 
-        setIng(data as Ingredient);
-        setInci(data.inci_name ?? '');
-        setFunctionsCsv(normalizeFunctions(data.functions).join(', '));
-        setSafety(typeof data.safety_level === 'number' ? data.safety_level : '');
-        setIsNew(Boolean(data.is_new));
+        const row = data as Ingredient;
+        setIng(row);
+        setInci(row.inci_name ?? '');
+        setFunctionsCsv(normalizeFunctions(row.functions).join(', '));
+        setLevel(row.level_of_recommendation ?? ''); // ← ustawiamy string
+        setIsNew(Boolean(row.is_new));
       } catch (e: any) {
         alert(e?.message ?? 'Błąd pobierania składnika');
         router.replace('/ingredients');
@@ -76,7 +74,7 @@ export default function EditIngredientPage() {
   const toArray = (csv: string) => {
     const t = (csv ?? '').trim();
     if (!t) return null;
-    const arr = t.split(',').map(s => s.trim()).filter(Boolean);
+    const arr = t.split(',').map((s) => s.trim()).filter(Boolean);
     return arr.length ? arr : null;
   };
 
@@ -94,7 +92,7 @@ export default function EditIngredientPage() {
         .update({
           inci_name,
           functions: toArray(functionsCsv), // zapis jako text[] / null
-          safety_level: safety === '' ? null : Math.max(0, Math.min(5, Number(safety))),
+          level_of_recommendation: level === '' ? null : level, // ← zapisujemy wybraną wartość
           is_new: isNew,
         })
         .eq('id', ing.id);
@@ -152,18 +150,20 @@ export default function EditIngredientPage() {
           </p>
         </div>
 
-        {/* Safety */}
+        {/* Poziom rekomendacji */}
         <div className="mb-6">
-          <label className="mb-1 block text-sm font-medium text-slate-300">Poziom bezpieczeństwa</label>
+          <label className="mb-1 block text-sm font-medium text-slate-300">Poziom rekomendacji</label>
           <select
             className="w-full rounded-lg border border-slate-600/70 bg-slate-900/50 px-3 py-2 text-slate-100 outline-none focus:border-slate-400"
-            value={safety}
-            onChange={(e) => setSafety(e.target.value === '' ? '' : Number(e.target.value))}
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
           >
             <option value="">— brak —</option>
-            {[0, 1, 2, 3, 4, 5].map((n) => (
+            {['1', '2', '3', '4', '5'].map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
+            <option value="alergen">Alergen</option>
+            <option value="konserwant">Konserwant</option>
           </select>
         </div>
 

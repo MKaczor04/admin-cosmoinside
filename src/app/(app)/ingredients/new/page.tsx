@@ -6,17 +6,18 @@ import { supabase } from '@/lib/supabaseClient';
 
 export default function NewIngredientPage() {
   const router = useRouter();
+
   const [inci, setInci] = useState('');
   const [functionsCsv, setFunctionsCsv] = useState('');
-  const [safety, setSafety] = useState<number | ''>('');
+  // ⬇️ string, bo mogą być wartości: "1"…"5" albo "alergen"/"konserwant"
+  const [level, setLevel] = useState<string>(''); 
   const [saving, setSaving] = useState(false);
 
   const toArray = (csv: string) => {
     const t = (csv ?? '').trim();
     if (!t) return null;
-    const arr = t.split(',').map(s => s.trim()).filter(Boolean);
-    return arr.length ? arr : null;
-    // zapisujemy jako text[] lub NULL
+    const arr = t.split(',').map((s) => s.trim()).filter(Boolean);
+    return arr.length ? arr : null; // zapis jako text[] lub NULL
   };
 
   const save = async () => {
@@ -25,14 +26,18 @@ export default function NewIngredientPage() {
       alert('Podaj nazwę INCI.');
       return;
     }
+
     setSaving(true);
 
-    const { error } = await supabase.from('ingredients').insert({
+    const payload = {
       inci_name,
       functions: toArray(functionsCsv),
-      safety_level: safety === '' ? null : Math.max(0, Math.min(5, Number(safety))),
+      // ⬇️ zapisujemy literalnie wybraną wartość (lub NULL)
+      level_of_recommendation: level === '' ? null : level, 
       is_new: true,
-    });
+    };
+
+    const { error } = await supabase.from('ingredients').insert(payload);
 
     setSaving(false);
     if (error) return alert(error.message);
@@ -73,18 +78,22 @@ export default function NewIngredientPage() {
           </p>
         </div>
 
-        {/* Safety level */}
+        {/* Poziom rekomendacji (1–5 lub specjalne: alergen/konserwant) */}
         <div className="mb-6">
-          <label className="mb-1 block text-sm font-medium text-slate-300">Poziom bezpieczeństwa</label>
+          <label className="mb-1 block text-sm font-medium text-slate-300">Poziom rekomendacji</label>
           <select
             className="w-full rounded-lg border border-slate-600/70 bg-slate-900/50 px-3 py-2 text-slate-100 outline-none focus:border-slate-400"
-            value={safety}
-            onChange={(e) => setSafety(e.target.value === '' ? '' : Number(e.target.value))}
+            value={level}
+            onChange={(e) => setLevel(e.target.value)}
           >
             <option value="">— brak —</option>
-            {[0, 1, 2, 3, 4, 5].map((n) => (
+            {/* standardowe poziomy */}
+            {['1', '2', '3', '4', '5'].map((n) => (
               <option key={n} value={n}>{n}</option>
             ))}
+            {/* specjalne wartości */}
+            <option value="alergen">Alergen</option>
+            <option value="konserwant">Konserwant</option>
           </select>
         </div>
 

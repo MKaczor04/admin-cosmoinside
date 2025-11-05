@@ -7,9 +7,24 @@ import { supabase } from '@/lib/supabaseClient';
 type Ingredient = {
   id: number;
   inci_name: string;
-  functions: string[] | string | null; // ⬅️ dodany string
-  safety_level: number | null;
+  functions: string[] | string | null;
+  level_of_recommendation: string | null; // ← zamiast safety_level
   is_new: boolean | null;
+};
+
+const normalizeFunctions = (v: string[] | string | null | undefined): string[] => {
+  if (Array.isArray(v)) return v.filter(Boolean);
+  if (typeof v === 'string') {
+    try {
+      const parsed = JSON.parse(v);
+      if (Array.isArray(parsed)) return parsed.map((s) => String(s).trim()).filter(Boolean);
+    } catch {
+      const t = v.trim();
+      if (!t) return [];
+      return t.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return [];
 };
 
 export default function IngredientsPage() {
@@ -22,7 +37,7 @@ export default function IngredientsPage() {
     setLoading(true);
     const { data, error } = await supabase
       .from('ingredients')
-      .select('id, inci_name, functions, safety_level, is_new')
+      .select('id, inci_name, functions, level_of_recommendation, is_new')
       .order('inci_name', { ascending: true });
 
     if (error) {
@@ -43,16 +58,12 @@ export default function IngredientsPage() {
     if (!s) return rows;
 
     return rows.filter((i) => {
-      const fnTxt = Array.isArray(i.functions)
-        ? i.functions.join(', ').toLowerCase()
-        : typeof i.functions === 'string'
-        ? i.functions.toLowerCase()
-        : '';
-
+      const fnTxt = normalizeFunctions(i.functions).join(', ').toLowerCase();
+      const lvl = (i.level_of_recommendation ?? '').toLowerCase();
       return (
         (i.inci_name ?? '').toLowerCase().includes(s) ||
         fnTxt.includes(s) ||
-        (i.safety_level !== null && String(i.safety_level).includes(s))
+        lvl.includes(s)
       );
     });
   }, [q, rows]);
@@ -96,7 +107,7 @@ export default function IngredientsPage() {
         {/* Wyszukiwarka */}
         <input
           className="mb-3 w-full rounded-lg border border-slate-600/70 bg-slate-900/50 px-3 py-2 text-slate-100 placeholder-slate-400 outline-none focus:border-slate-400"
-          placeholder="Szukaj po INCI / funkcji / poziomie bezpieczeństwa…"
+          placeholder="Szukaj po INCI / funkcji / poziomie rekomendacji…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
@@ -129,11 +140,16 @@ export default function IngredientsPage() {
                 key={i.id}
                 className="flex flex-col gap-3 rounded-xl border border-slate-700/60 bg-slate-900/40 px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
               >
-                {/* Lewa część: nazwa + badge NOWY */}
+                {/* Lewa część: nazwa (LINK) + badge NOWY */}
                 <div className="min-w-0 leading-tight">
-                  <div className="truncate font-semibold text-slate-100">{i.inci_name}</div>
+                  <Link
+                    href={`/ingredients/${i.id}`}
+                    className="truncate font-semibold text-slate-100 hover:underline"
+                  >
+                    {i.inci_name}
+                  </Link>
                   {i.is_new ? (
-                    <span className="mt-1 inline-flex rounded bg-amber-600/30 px-2 py-0.5 text-xs text-amber-300">
+                    <span className="ml-2 inline-flex rounded bg-amber-600/30 px-2 py-0.5 text-xs text-amber-300">
                       NOWY
                     </span>
                   ) : null}
