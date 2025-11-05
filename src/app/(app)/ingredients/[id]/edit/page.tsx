@@ -8,9 +8,11 @@ type Ingredient = {
   id: number;
   inci_name: string;
   functions: string[] | string | null;
-  level_of_recommendation: string | null; // ← zmiana nazwy/typu
+  level_of_recommendation: string | null; // '1'..'5' | 'alergen' | 'konserwant' | null
   is_new: boolean | null;
 };
+
+const ALLOWED_LEVELS = new Set(['1','2','3','4','5','alergen','konserwant']);
 
 export default function EditIngredientPage() {
   const router = useRouter();
@@ -20,11 +22,12 @@ export default function EditIngredientPage() {
   const [ing, setIng] = useState<Ingredient | null>(null);
   const [inci, setInci] = useState('');
   const [functionsCsv, setFunctionsCsv] = useState('');
-  const [level, setLevel] = useState<string>(''); // ← 1..5 | 'alergen' | 'konserwant' | ''
+  const [level, setLevel] = useState<string>(''); // '1'..'5' | 'alergen' | 'konserwant' | ''
   const [isNew, setIsNew] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const normalizeInci = (s: string) => s.trim().replace(/\s+/g, ' ');
   const normalizeFunctions = (v: string[] | string | null | undefined): string[] => {
     if (Array.isArray(v)) return v.filter(Boolean);
     if (typeof v === 'string') {
@@ -45,7 +48,7 @@ export default function EditIngredientPage() {
       try {
         const { data, error } = await supabase
           .from('ingredients')
-          .select('id, inci_name, functions, level_of_recommendation, is_new') // ← pobieramy level_of_recommendation
+          .select('id, inci_name, functions, level_of_recommendation, is_new')
           .eq('id', id)
           .maybeSingle();
 
@@ -60,7 +63,7 @@ export default function EditIngredientPage() {
         setIng(row);
         setInci(row.inci_name ?? '');
         setFunctionsCsv(normalizeFunctions(row.functions).join(', '));
-        setLevel(row.level_of_recommendation ?? ''); // ← ustawiamy string
+        setLevel(row.level_of_recommendation ?? '');
         setIsNew(Boolean(row.is_new));
       } catch (e: any) {
         alert(e?.message ?? 'Błąd pobierania składnika');
@@ -80,19 +83,39 @@ export default function EditIngredientPage() {
 
   const save = async () => {
     if (!ing) return;
-    const inci_name = inci.trim();
+
+    const inci_name = normalizeInci(inci);
     if (!inci_name) {
       alert('Podaj nazwę INCI.');
       return;
     }
+
+    // sanity-check poziomu (jeśli coś spoza listy, traktuj jako null)
+    const level_to_save =
+      level === '' ? null : (ALLOWED_LEVELS.has(level) ? level : null);
+
     try {
       setSaving(true);
+
+      // 🚫 blokada duplikatów: inny rekord z tą samą nazwą (case-insensitive)
+      const dup = await supabase
+        .from('ingredients')
+        .select('id', { head: true, count: 'exact' })
+        .ilike('inci_name', inci_name)
+        .neq('id', ing.id);
+
+      if ((dup.count ?? 0) > 0) {
+        alert(`Składnik o nazwie „${inci_name}” już istnieje.`);
+        setSaving(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('ingredients')
         .update({
           inci_name,
-          functions: toArray(functionsCsv), // zapis jako text[] / null
-          level_of_recommendation: level === '' ? null : level, // ← zapisujemy wybraną wartość
+          functions: toArray(functionsCsv),            // text[] / null
+          level_of_recommendation: level_to_save,      // string | null
           is_new: isNew,
         })
         .eq('id', ing.id);

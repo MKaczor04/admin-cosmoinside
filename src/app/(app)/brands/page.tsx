@@ -46,10 +46,19 @@ export default function BrandsPage() {
     fetchBrands();
   }, []);
 
-  // ===== dodawanie =====
+  // ===== dodawanie z blokadą duplikatu =====
   const addBrand = async () => {
     const name = newName.trim();
     if (!name) return;
+
+    // Sprawdź duplikat (case-insensitive)
+    const exists = brands.some(
+      (b) => b.name.toLowerCase() === name.toLowerCase()
+    );
+    if (exists) {
+      alert('Taka marka już istnieje.');
+      return;
+    }
 
     setAdding(true);
     try {
@@ -99,6 +108,15 @@ export default function BrandsPage() {
     if (editId === null) return;
     const name = editName.trim();
     if (!name) return;
+
+    // Sprawdź duplikat przy edycji (z wyjątkiem aktualnej marki)
+    const exists = brands.some(
+      (b) => b.id !== editId && b.name.toLowerCase() === name.toLowerCase()
+    );
+    if (exists) {
+      alert('Taka marka już istnieje.');
+      return;
+    }
 
     setSavingEdit(true);
     try {
