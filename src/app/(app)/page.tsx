@@ -13,6 +13,8 @@ type LatestProduct = {
 
 type Brand = { id: number; name: string; is_new?: boolean | null };
 type Ingredient = { id: number; inci_name: string; is_new?: boolean | null };
+type ProductLite = { id: number; name: string; is_new?: boolean | null };
+type BugLite = { id: number; title: string; status: string; created_at: string };
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
@@ -21,27 +23,34 @@ export default function DashboardPage() {
     products: 0,
     brands: 0,
     ingredients: 0,
+    users: 0, // ✅ nowy licznik
   });
 
   const [latest, setLatest] = useState<LatestProduct[]>([]);
   const [newBrands, setNewBrands] = useState<Brand[]>([]);
   const [newIngs, setNewIngs] = useState<Ingredient[]>([]);
+  const [newProducts, setNewProducts] = useState<ProductLite[]>([]);
+  const [bugs, setBugs] = useState<BugLite[]>([]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
 
-      // Liczniki
+      // Liczniki produktów/marek/składników
       const [p, b, i] = await Promise.all([
         supabase.from('products').select('*', { head: true, count: 'exact' }),
         supabase.from('brands').select('*', { head: true, count: 'exact' }),
         supabase.from('ingredients').select('*', { head: true, count: 'exact' }),
       ]);
 
+      // Licznik użytkowników (na podstawie profiles)
+      const u = await supabase.from('profiles').select('*', { head: true, count: 'exact' });
+
       setCounts({
         products: p.count ?? 0,
         brands: b.count ?? 0,
         ingredients: i.count ?? 0,
+        users: u.count ?? 0, // ✅
       });
 
       // Ostatnio dodane produkty
@@ -50,11 +59,10 @@ export default function DashboardPage() {
         .select('id, name, thumb_url, brands(name)')
         .order('id', { ascending: false })
         .limit(5);
-
       setLatest((latestP.data as LatestProduct[]) ?? []);
 
-      // Nowe marki i składniki
-      const [nb, ni] = await Promise.all([
+      // Nowe marki, składniki, produkty
+      const [nb, ni, np] = await Promise.all([
         supabase
           .from('brands')
           .select('id, name, is_new')
@@ -65,10 +73,24 @@ export default function DashboardPage() {
           .select('id, inci_name, is_new')
           .eq('is_new', true)
           .order('inci_name', { ascending: true }),
+        supabase
+          .from('products')
+          .select('id, name, is_new')
+          .eq('is_new', true)
+          .order('name', { ascending: true }),
       ]);
-
       setNewBrands((nb.data as Brand[]) ?? []);
       setNewIngs((ni.data as Ingredient[]) ?? []);
+      setNewProducts((np.data as ProductLite[]) ?? []);
+
+      // ✅ Zgłoszone błędy: tylko otwarte
+      const bugsRes = await supabase
+        .from('bug_reports')
+        .select('id, title, status, created_at')
+        .eq('status', 'open')
+        .order('created_at', { ascending: false })
+        .limit(8);
+      setBugs((bugsRes.data as BugLite[]) ?? []);
 
       setLoading(false);
     })();
@@ -114,7 +136,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Statystyki */}
-      <div className="mb-8 grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4 text-center shadow-sm">
           <div className="text-3xl font-bold text-slate-100">
             {loading ? '…' : counts.products}
@@ -132,6 +154,16 @@ export default function DashboardPage() {
             {loading ? '…' : counts.ingredients}
           </div>
           <div className="text-sm text-slate-400">Składników</div>
+        </div>
+      </div>
+
+      {/* ✅ Licznik użytkowników (pełna szerokość) */}
+      <div className="mb-8">
+        <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4 text-center shadow-sm">
+          <div className="text-3xl font-bold text-slate-100">
+            {loading ? '…' : counts.users}
+          </div>
+          <div className="text-sm text-slate-400">Zarejestrowanych użytkowników</div>
         </div>
       </div>
 
@@ -184,10 +216,46 @@ export default function DashboardPage() {
           )}
         </section>
 
-        {/* Nowe marki i składniki */}
+        {/* Do uzupełnienia + Zgłoszone błędy */}
         <section className="rounded-2xl border border-slate-700/60 bg-slate-800/60 p-6 shadow-lg backdrop-blur">
           <h2 className="mb-4 text-xl font-semibold text-slate-100">Do uzupełnienia</h2>
 
+          {/* Nowe produkty */}
+          <div className="mb-6">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="font-medium text-slate-200">
+                Nowe produkty <span className="text-slate-400">({newProducts.length})</span>
+              </h3>
+              <Link
+                href="/products"
+                className="text-sm font-medium text-slate-300 underline-offset-4 hover:underline"
+              >
+                Przejdź do produktów
+              </Link>
+            </div>
+
+            {loading ? (
+              <p className="text-slate-400">Wczytywanie…</p>
+            ) : newProducts.length === 0 ? (
+              <p className="text-slate-500">Brak nowych produktów.</p>
+            ) : (
+              <ul className="divide-y divide-slate-700">
+                {newProducts.slice(0, 6).map((pr) => (
+                  <li key={pr.id} className="flex items-center justify-between py-2">
+                    <span className="text-slate-100">{pr.name}</span>
+                    <Link
+                      href={`/products/${pr.id}/edit`}
+                      className="rounded-md border border-amber-500 px-3 py-1 text-sm text-amber-300 hover:bg-amber-600/20"
+                    >
+                      Uzupełnij
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* Nowe marki */}
           <div className="mb-6">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-medium text-slate-200">
@@ -222,7 +290,8 @@ export default function DashboardPage() {
             )}
           </div>
 
-          <div>
+          {/* Nowe składniki */}
+          <div className="mb-8">
             <div className="mb-2 flex items-center justify-between">
               <h3 className="font-medium text-slate-200">
                 Nowe składniki <span className="text-slate-400">({newIngs.length})</span>
@@ -255,12 +324,57 @@ export default function DashboardPage() {
               </ul>
             )}
           </div>
+
+          {/* Zgłoszone błędy (tylko otwarte) */}
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="font-medium text-slate-200">
+                Zgłoszone błędy <span className="text-slate-400">({bugs.length})</span>
+              </h3>
+              <Link
+                href="/account"
+                className="text-sm font-medium text-slate-300 underline-offset-4 hover:underline"
+              >
+                Zgłoś nowy
+              </Link>
+            </div>
+
+            {loading ? (
+              <p className="text-slate-400">Wczytywanie…</p>
+            ) : bugs.length === 0 ? (
+              <p className="text-slate-500">Brak otwartych zgłoszeń.</p>
+            ) : (
+              <ul className="divide-y divide-slate-700">
+                {bugs.map((b) => (
+                  <li key={b.id} className="flex items-center justify-between py-2">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/bugs/${b.id}`}
+                        className="truncate font-medium text-slate-100 hover:underline"
+                      >
+                        {b.title}
+                      </Link>
+                      <div className="text-xs text-slate-400">
+                        {new Date(b.created_at).toLocaleString()} • {b.status}
+                      </div>
+                    </div>
+                    <Link
+                      href={`/bugs/${b.id}`}
+                      className="rounded-md border border-slate-600 px-3 py-1 text-sm text-slate-200 hover:bg-slate-700/60"
+                    >
+                      Szczegóły
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </section>
       </div>
 
       {/* Stopka z wersjami */}
       <footer className="mt-10 border-t border-slate-700 pt-4 text-center text-xs text-slate-500">
-        <div>Panel administratora CosmoInside • ver 0.3.0</div>
+        <div>Panel administratora CosmoInside • ver 0.3.2</div>
         <div className="text-slate-600 mt-1">Aplikacja CosmoInside • ver 0.1.0</div>
       </footer>
     </div>

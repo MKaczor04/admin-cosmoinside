@@ -39,6 +39,16 @@ const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   />
 );
 
+const Textarea = (props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) => (
+  <textarea
+    {...props}
+    className={
+      'w-full rounded-lg border border-slate-700/70 bg-slate-950/60 px-3 py-2 text-slate-100 outline-none focus:ring-2 focus:ring-slate-600 ' +
+      (props.className ?? '')
+    }
+  />
+);
+
 const Select = (props: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select
     {...props}
@@ -113,6 +123,12 @@ export default function AccountPage() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [changingPwd, setChangingPwd] = useState(false);
 
+  // BUG REPORT modal
+  const [bugOpen, setBugOpen] = useState(false);
+  const [bugTitle, setBugTitle] = useState('');
+  const [bugDesc, setBugDesc] = useState('');
+  const [bugSaving, setBugSaving] = useState(false);
+
   // INIT
   useEffect(() => {
     (async () => {
@@ -155,14 +171,14 @@ export default function AccountPage() {
     const path = `avatars/${userId}_${Date.now()}.${ext}`;
 
     const { error } = await supabase.storage
-      .from('cms') // ← jeśli używasz innego bucketa na pliki panelu, podmień tutaj
+      .from('cms') // ← jeśli używasz innego bucketa, podmień tutaj i niżej
       .upload(path, avatarFile, { cacheControl: '3600', upsert: false });
 
     if (error) {
       alert('Błąd wgrywania avatara: ' + error.message);
       return null;
     }
-    const { data } = supabase.storage.from('cms').getPublicUrl(path); // ← oraz tutaj
+    const { data } = supabase.storage.from('cms').getPublicUrl(path);
     return data.publicUrl;
   };
 
@@ -241,11 +257,38 @@ export default function AccountPage() {
 
   const signOutEverywhere = async () => {
     try {
-      // globalne wylogowanie (Supabase JS v2)
       await supabase.auth.signOut({ scope: 'global' as any });
       router.replace('/login');
     } catch (e: any) {
       alert('Nie udało się wylogować ze wszystkich urządzeń: ' + (e?.message ?? e));
+    }
+  };
+
+  // Zgłoszenie błędu → insert do bug_reports
+  const submitBug = async () => {
+    if (!userId) return alert('Brak użytkownika.');
+    const title = bugTitle.trim();
+    const description = bugDesc.trim();
+    if (!title || !description) {
+      return alert('Uzupełnij tytuł i opis błędu.');
+    }
+    setBugSaving(true);
+    try {
+      const { error } = await supabase.from('bug_reports').insert({
+        user_id: userId,
+        title,
+        description,
+        status: 'open', // domyślnie otwarty
+      });
+      if (error) throw error;
+      setBugOpen(false);
+      setBugTitle('');
+      setBugDesc('');
+      alert('Zgłoszenie zapisane ✅');
+    } catch (e: any) {
+      alert('Nie udało się zapisać zgłoszenia: ' + (e?.message ?? e));
+    } finally {
+      setBugSaving(false);
     }
   };
 
@@ -398,7 +441,7 @@ export default function AccountPage() {
             </li>
             <li className="flex justify-between">
               <span>Wersja panelu administratora:</span>
-              <span className="font-medium">ver 0.2.0</span>
+              <span className="font-medium">ver 0.3.2</span>
             </li>
             <li className="flex justify-between">
               <span>Twoje ID użytkownika:</span>
@@ -408,8 +451,56 @@ export default function AccountPage() {
           <p className="mt-4 text-xs text-slate-500">
             Jeżeli zauważysz błąd lub masz propozycję zmiany – daj znać. 👍
           </p>
+
+          {/* --- NOWE: przycisk zgłaszania błędu --- */}
+          <div className="mt-3">
+            <Btn variant="outline" onClick={() => setBugOpen(true)}>
+              Zgłoś błąd
+            </Btn>
+          </div>
         </Card>
       </div>
+
+      {/* --- Modal zgłaszania błędu --- */}
+      {bugOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => (!bugSaving ? setBugOpen(false) : null)}
+          />
+          <div className="relative z-10 w-full max-w-lg rounded-2xl border border-slate-700/70 bg-slate-900/90 p-5 shadow-2xl backdrop-blur">
+            <h3 className="mb-3 text-lg font-semibold text-slate-100">Zgłoś błąd</h3>
+
+            <div className="mb-3">
+              <Label>Tytuł</Label>
+              <Input
+                value={bugTitle}
+                onChange={(e) => setBugTitle(e.target.value)}
+                placeholder="Krótki tytuł problemu"
+              />
+            </div>
+
+            <div className="mb-4">
+              <Label>Opis</Label>
+              <Textarea
+                rows={5}
+                value={bugDesc}
+                onChange={(e) => setBugDesc(e.target.value)}
+                placeholder="Co się stało? Jak odtworzyć błąd? (kroki, przeglądarka, ekran)"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Btn variant="outline" onClick={() => setBugOpen(false)} disabled={bugSaving}>
+                Anuluj
+              </Btn>
+              <Btn onClick={submitBug} disabled={bugSaving}>
+                {bugSaving ? 'Wysyłam…' : 'Wyślij zgłoszenie'}
+              </Btn>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
