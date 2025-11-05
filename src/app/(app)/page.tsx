@@ -255,41 +255,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Nowe marki */}
-          <div className="mb-6">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-medium text-slate-200">
-                Nowe marki <span className="text-slate-400">({newBrands.length})</span>
-              </h3>
-              <Link
-                href="/brands"
-                className="text-sm font-medium text-slate-300 underline-offset-4 hover:underline"
-              >
-                Przejdź do marek
-              </Link>
-            </div>
-
-            {loading ? (
-              <p className="text-slate-400">Wczytywanie…</p>
-            ) : newBrands.length === 0 ? (
-              <p className="text-slate-500">Brak nowych marek.</p>
-            ) : (
-              <ul className="divide-y divide-slate-700">
-                {newBrands.slice(0, 6).map((b) => (
-                  <li key={b.id} className="flex items-center justify-between py-2">
-                    <span className="text-slate-100">{b.name}</span>
-                    <Link
-                      href="/brands"
-                      className="rounded-md border border-amber-500 px-3 py-1 text-sm text-amber-300 hover:bg-amber-600/20"
-                    >
-                      Oznacz/edytuj
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
           {/* Nowe składniki */}
           <div className="mb-8">
             <div className="mb-2 flex items-center justify-between">
