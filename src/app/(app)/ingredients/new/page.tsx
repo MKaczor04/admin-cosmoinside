@@ -12,11 +12,11 @@ export default function NewIngredientPage() {
   const [saving, setSaving] = useState(false);
 
   const toArray = (csv: string) => {
-    const arr = csv
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const t = (csv ?? '').trim();
+    if (!t) return null;
+    const arr = t.split(',').map(s => s.trim()).filter(Boolean);
     return arr.length ? arr : null;
+    // zapisujemy jako text[] lub NULL
   };
 
   const save = async () => {
@@ -83,9 +83,7 @@ export default function NewIngredientPage() {
           >
             <option value="">— brak —</option>
             {[0, 1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
+              <option key={n} value={n}>{n}</option>
             ))}
           </select>
         </div>

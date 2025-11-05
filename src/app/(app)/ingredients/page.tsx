@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 type Ingredient = {
   id: number;
   inci_name: string;
-  functions: string[] | null;
+  functions: string[] | string | null; // ⬅️ dodany string
   safety_level: number | null;
   is_new: boolean | null;
 };
@@ -29,7 +29,7 @@ export default function IngredientsPage() {
       alert('Błąd pobierania składników: ' + error.message);
       setRows([]);
     } else {
-      setRows(data ?? []);
+      setRows((data as Ingredient[]) ?? []);
     }
     setLoading(false);
   };
@@ -38,15 +38,20 @@ export default function IngredientsPage() {
     fetchRows();
   }, []);
 
-  // wyszukiwarka (szuka po INCI, funkcjach i safety level – ale na liście pokazujemy tylko nazwę + badge NOWY)
   const filtered = useMemo(() => {
     const s = q.trim().toLowerCase();
     if (!s) return rows;
+
     return rows.filter((i) => {
-      const fn = (i.functions ?? []).join(', ').toLowerCase();
+      const fnTxt = Array.isArray(i.functions)
+        ? i.functions.join(', ').toLowerCase()
+        : typeof i.functions === 'string'
+        ? i.functions.toLowerCase()
+        : '';
+
       return (
-        i.inci_name.toLowerCase().includes(s) ||
-        fn.includes(s) ||
+        (i.inci_name ?? '').toLowerCase().includes(s) ||
+        fnTxt.includes(s) ||
         (i.safety_level !== null && String(i.safety_level).includes(s))
       );
     });
@@ -101,10 +106,7 @@ export default function IngredientsPage() {
         {loading ? (
           <ul className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
-              <li
-                key={i}
-                className="flex items-center justify-between rounded-xl border border-slate-700/60 bg-slate-900/40 px-3 py-3"
-              >
+              <li key={i} className="flex items-center justify-between rounded-xl border border-slate-700/60 bg-slate-900/40 px-3 py-3">
                 <div>
                   <div className="h-4 w-48 animate-pulse rounded bg-slate-700" />
                   <div className="mt-2 h-3 w-20 animate-pulse rounded bg-slate-700" />

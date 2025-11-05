@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabaseClient';
 type Ingredient = {
   id: number;
   inci_name: string;
-  functions: string[] | null;
+  functions: string[] | string | null; // ⬅️ dodany string
   safety_level: number | null;
   is_new: boolean | null;
 };
@@ -25,39 +25,58 @@ export default function EditIngredientPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const normalizeFunctions = (v: string[] | string | null | undefined): string[] => {
+  if (Array.isArray(v)) return v.filter(Boolean);
+  if (typeof v === 'string') {
+    try {
+      // Jeśli to JSON, np. ["humectant","solvent"]
+      const parsed = JSON.parse(v);
+      if (Array.isArray(parsed)) return parsed.map((s) => String(s).trim()).filter(Boolean);
+    } catch {
+      // Jeśli zwykły tekst, np. "emollient, humectant"
+      const t = v.trim();
+      if (!t) return [];
+      return t.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+  }
+  return [];
+};
+
+
   useEffect(() => {
     (async () => {
-      const { data, error } = await supabase
-        .from('ingredients')
-        .select('id, inci_name, functions, safety_level, is_new')
-        .eq('id', id)
-        .maybeSingle();
+      try {
+        const { data, error } = await supabase
+          .from('ingredients')
+          .select('id, inci_name, functions, safety_level, is_new')
+          .eq('id', id)
+          .maybeSingle();
 
-      if (error) {
-        alert(error.message);
-        router.replace('/ingredients');
-        return;
-      }
-      if (!data) {
-        alert('Nie znaleziono składnika.');
-        router.replace('/ingredients');
-        return;
-      }
+        if (error) throw error;
+        if (!data) {
+          alert('Nie znaleziono składnika.');
+          router.replace('/ingredients');
+          return;
+        }
 
-      setIng(data as Ingredient);
-      setInci(data.inci_name);
-      setFunctionsCsv((data.functions ?? []).join(', '));
-      setSafety(typeof data.safety_level === 'number' ? data.safety_level : '');
-      setIsNew(Boolean(data.is_new));
-      setLoading(false);
+        setIng(data as Ingredient);
+        setInci(data.inci_name ?? '');
+        setFunctionsCsv(normalizeFunctions(data.functions).join(', '));
+        setSafety(typeof data.safety_level === 'number' ? data.safety_level : '');
+        setIsNew(Boolean(data.is_new));
+      } catch (e: any) {
+        alert(e?.message ?? 'Błąd pobierania składnika');
+        router.replace('/ingredients');
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [id, router]);
 
   const toArray = (csv: string) => {
-    const arr = csv
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    const t = (csv ?? '').trim();
+    if (!t) return null;
+    const arr = t.split(',').map(s => s.trim()).filter(Boolean);
     return arr.length ? arr : null;
   };
 
@@ -68,20 +87,25 @@ export default function EditIngredientPage() {
       alert('Podaj nazwę INCI.');
       return;
     }
-    setSaving(true);
-    const { error } = await supabase
-      .from('ingredients')
-      .update({
-        inci_name,
-        functions: toArray(functionsCsv),
-        safety_level: safety === '' ? null : Math.max(0, Math.min(5, Number(safety))),
-        is_new: isNew,
-      })
-      .eq('id', ing.id);
+    try {
+      setSaving(true);
+      const { error } = await supabase
+        .from('ingredients')
+        .update({
+          inci_name,
+          functions: toArray(functionsCsv), // zapis jako text[] / null
+          safety_level: safety === '' ? null : Math.max(0, Math.min(5, Number(safety))),
+          is_new: isNew,
+        })
+        .eq('id', ing.id);
 
-    setSaving(false);
-    if (error) return alert(error.message);
-    router.replace('/ingredients');
+      if (error) throw error;
+      router.replace('/ingredients');
+    } catch (e: any) {
+      alert(e?.message ?? 'Błąd zapisu składnika');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -138,9 +162,7 @@ export default function EditIngredientPage() {
           >
             <option value="">— brak —</option>
             {[0, 1, 2, 3, 4, 5].map((n) => (
-              <option key={n} value={n}>
-                {n}
-              </option>
+              <option key={n} value={n}>{n}</option>
             ))}
           </select>
         </div>
