@@ -339,7 +339,7 @@ export default function DashboardPage() {
 
       {/* Stopka z wersjami */}
       <footer className="mt-10 border-t border-slate-700 pt-4 text-center text-xs text-slate-500">
-        <div>Panel administratora CosmoInside • ver 0.3.2</div>
+        <div>Panel administratora CosmoInside • ver 0.4.1</div>
         <div className="text-slate-600 mt-1">Aplikacja CosmoInside • ver 0.1.0</div>
       </footer>
     </div>

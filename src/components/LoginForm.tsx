@@ -113,7 +113,7 @@ export default function LoginForm({ err }: { err: string | null }) {
 
       {/* Stopka z wersjami */}
       <footer className="mt-10 text-xs text-slate-500">
-        Aplikacja CosmoInside: 0.1.0 • Panel administratora: 0.3.0
+        Aplikacja CosmoInside: 0.1.0 • Panel administratora: 0.4.1
       </footer>
     </div>
   );
